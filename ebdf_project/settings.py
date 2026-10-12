@@ -44,13 +44,32 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+]
+try:
+    import whitenoise  # noqa: F401
+    MIDDLEWARE.append('whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
+
+MIDDLEWARE.extend([
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+])
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.onrender.com',
+    'https://*.koyeb.app',
+    'https://*.railway.app',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
 ]
+extra_csrf = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if extra_csrf:
+    CSRF_TRUSTED_ORIGINS.extend([o.strip() for o in extra_csrf.split(',') if o.strip()])
 
 ROOT_URLCONF = 'ebdf_project.urls'
 
@@ -72,17 +91,41 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'ebdf_project.wsgi.application'
 
-# PostgreSQL Database Configuration
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'EBDF'),
-        'USER': os.environ.get('DB_USER', os.environ.get('DB_USERNAME', 'postgres')),
-        'PASSWORD': os.environ.get('DB_PASSWORD', '250730'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+# Database Configuration (Neon PostgreSQL / Render / Local)
+if os.environ.get('DATABASE_URL'):
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=os.environ['DATABASE_URL'],
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        }
+    except ImportError:
+        import urllib.parse
+        url = urllib.parse.urlparse(os.environ['DATABASE_URL'])
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': url.path.lstrip('/'),
+                'USER': url.username,
+                'PASSWORD': url.password,
+                'HOST': url.hostname,
+                'PORT': str(url.port or 5432),
+            }
+        }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'EBDF'),
+            'USER': os.environ.get('DB_USER', os.environ.get('DB_USERNAME', 'postgres')),
+            'PASSWORD': os.environ.get('DB_PASSWORD', '250730'),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
 
 # Database Cache Configuration for custom rate-limiting
 CACHES = {
