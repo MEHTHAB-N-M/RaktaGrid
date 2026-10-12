@@ -6,6 +6,7 @@ PostgreSQL-backed civic emergency blood dispatch framework.
 
 import os
 from pathlib import Path
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -93,28 +94,13 @@ WSGI_APPLICATION = 'ebdf_project.wsgi.application'
 
 # Database Configuration (Neon PostgreSQL / Render / Local)
 if os.environ.get('DATABASE_URL'):
-    try:
-        import dj_database_url
-        DATABASES = {
-            'default': dj_database_url.config(
-                default=os.environ['DATABASE_URL'],
-                conn_max_age=600,
-                conn_health_checks=True,
-            )
-        }
-    except ImportError:
-        import urllib.parse
-        url = urllib.parse.urlparse(os.environ['DATABASE_URL'])
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql',
-                'NAME': url.path.lstrip('/'),
-                'USER': url.username,
-                'PASSWORD': url.password,
-                'HOST': url.hostname,
-                'PORT': str(url.port or 5432),
-            }
-        }
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ['DATABASE_URL'],
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
 else:
     DATABASES = {
         'default': {
