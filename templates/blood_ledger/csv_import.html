@@ -1,0 +1,67 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}CSV Batch Import ({{ import_type|title }}) | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-8">
+            <div class="card shadow-sm border-0 border-top border-4 border-danger">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <div>
+                            <h4 class="fw-bold mb-0">
+                                <i class="bi bi-file-earmark-arrow-up text-danger me-2"></i>
+                                Batch Import {{ import_type|title }}
+                            </h4>
+                            <span class="text-muted small">Importing for organisation: <strong>{{ user.staff_profile.organisation.name }}</strong></span>
+                        </div>
+                        <div>
+                            <a href="{% url 'download_csv_template' import_type %}" class="btn btn-outline-dark btn-sm">
+                                <i class="bi bi-download me-1"></i> Download {{ import_type|title }} Template CSV
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-secondary py-2 small mb-4">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Atomic Validation:</strong> All rows are checked first for required headers, valid blood groups, valid coordinates, and non-expired dates. If any row contains an error, <em>no rows are imported</em>, and the detailed errors are listed below.
+                    </div>
+
+                    {% if errors %}
+                        <div class="alert alert-danger mb-4">
+                            <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-2"></i>Import Rejected &mdash; Fix the following issues:</h6>
+                            <div class="mb-0 ps-3 small">
+                                {% for err in errors %}
+                                    <div>&bull; {{ err }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="{{ form.csv_file.id_for_label }}" class="form-label fw-semibold">
+                                Select CSV File (UTF-8) <span class="text-danger">*</span>
+                            </label>
+                            {{ form.csv_file }}
+                            <div class="form-text text-muted">{{ form.csv_file.help_text }}</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-upload me-1"></i> Validate &amp; Import {{ import_type|title }}
+                            </button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

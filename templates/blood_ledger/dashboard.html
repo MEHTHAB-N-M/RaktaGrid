@@ -1,0 +1,578 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Operational Dashboard | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 pb-3 border-bottom">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-speedometer2 text-danger me-2"></i>
+                {% if is_admin %}
+                    Platform Administration Dashboard
+                {% elif is_hospital %}
+                    Hospital Emergency Operations
+                {% else %}
+                    Regional Blood Bank Operations
+                {% endif %}
+            </h2>
+            <div class="text-muted small">
+                {% if staff_org %}
+                    <span class="fw-semibold text-dark">{{ staff_org.name }}</span>
+                    &bull; {{ staff_org.district }} District &bull;
+                    <span class="badge bg-secondary text-uppercase">{{ staff_org.org_type }}</span>
+                {% else %}
+                    Superuser Overview Mode
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            {% if is_admin %}
+                <a href="/admin/" target="_blank" class="btn btn-danger">
+                    <i class="bi bi-shield-lock-fill me-1"></i> Django Admin Portal
+                </a>
+            {% endif %}
+            {% if is_hospital %}
+                <a href="{% url 'create_emergency_request' %}" class="btn btn-danger">
+                    <i class="bi bi-plus-circle me-1"></i> New Emergency Requisition
+                </a>
+                <a href="{% url 'add_bag' %}" class="btn btn-outline-dark">
+                    <i class="bi bi-bag-plus me-1"></i> Add Bag
+                </a>
+                <a href="{% url 'csv_import_bags' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-file-earmark-arrow-up me-1"></i> Import Bags (CSV)
+                </a>
+            {% elif is_blood_bank %}
+                <a href="{% url 'record_donation' %}" class="btn btn-danger">
+                    <i class="bi bi-heart-pulse me-1"></i> Record Whole Donation
+                </a>
+                <a href="{% url 'add_bag' %}" class="btn btn-outline-dark">
+                    <i class="bi bi-bag-plus me-1"></i> Add Bag
+                </a>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-file-earmark-arrow-up me-1"></i> CSV Imports
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'csv_import_bags' %}"><i class="bi bi-bag-check me-2"></i>Import Bags CSV</a></li>
+                        <li><a class="dropdown-item" href="{% url 'csv_import_donors' %}"><i class="bi bi-people me-2"></i>Import Donors CSV</a></li>
+                    </ul>
+                </div>
+            {% endif %}
+            <a href="{% url 'audit_log' %}" class="btn btn-outline-info">
+                <i class="bi bi-journal-text me-1"></i> Audit Trail
+            </a>
+        </div>
+    </div>
+
+    <!-- Inventory Stat Cards (for Hospital or Blood Bank) -->
+    {% if not is_admin %}
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-success">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase fw-semibold">Available Units</div>
+                        <div class="fs-3 fw-bold text-success">{{ available_bags_count }}</div>
+                        <div class="small text-muted">Ready in cold storage</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-warning">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase fw-semibold">Reserved Units</div>
+                        <div class="fs-3 fw-bold text-warning">{{ reserved_bags_count }}</div>
+                        <div class="small text-muted">Held for active requisitions</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-secondary">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase fw-semibold">Quarantined Units</div>
+                        <div class="fs-3 fw-bold text-secondary">{{ quarantined_bags_count }}</div>
+                        <div class="small text-muted">Awaiting safety release</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-primary">
+                    <div class="card-body">
+                        <div class="text-muted small text-uppercase fw-semibold">Dispatched Units</div>
+                        <div class="fs-3 fw-bold text-primary">{{ dispatched_bags_count }}</div>
+                        <div class="small text-muted">Successfully fulfilled</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- HOSPITAL VIEW: REQUISITION LEDGER -->
+    {% if is_hospital %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0"><i class="bi bi-list-task text-danger me-2"></i>Hospital Emergency Requisitions</h5>
+                <a href="{% url 'create_emergency_request' %}" class="btn btn-sm btn-danger">
+                    <i class="bi bi-plus-lg me-1"></i> New Request
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ref ID</th>
+                            <th>Required Group</th>
+                            <th>Patient Ref</th>
+                            <th>Status</th>
+                            <th>Allocated Bag</th>
+                            <th>Blood Bank Name</th>
+                            <th>Created</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in my_requests %}
+                            <tr>
+                                <td class="fw-bold">
+                                    <a href="{% url 'request_detail' req.id %}" class="text-decoration-none">
+                                        REQ-{{ req.id|stringformat:"05d" }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-6">
+                                        {{ req.required_blood_type }}
+                                    </span>
+                                </td>
+                                <td><code>{{ req.patient_reference }}</code></td>
+                                <td>
+                                    {% if req.status == 'PENDING' or req.status == 'REQUESTED_FROM_BLOOD_BANK' %}
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>PENDING</span>
+                                    {% elif req.status == 'RESERVED' %}
+                                        <span class="badge bg-info text-dark"><i class="bi bi-lock-fill me-1"></i>RESERVED</span>
+                                    {% elif req.status == 'DISPATCHED' or req.status == 'FULFILLED_FROM_STOCK' %}
+                                        <span class="badge bg-success"><i class="bi bi-truck me-1"></i>DISPATCHED</span>
+                                    {% elif req.status == 'FALLBACK_DONOR_SEARCH' %}
+                                        <span class="badge bg-danger"><i class="bi bi-people-fill me-1"></i>DONOR FALLBACK</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ req.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if req.allocated_bag %}
+                                        <span class="fw-semibold text-dark">{{ req.allocated_bag.bag_number }}</span>
+                                        <span class="badge bg-light text-dark border">{{ req.allocated_bag.blood_type }}</span>
+                                        {% if req.allocated_bag.blood_type != req.required_blood_type %}
+                                            <span class="badge bg-warning text-dark" title="Compatible Substitute">Substitute</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">&mdash;</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if req.blood_bank %}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                            <i class="bi bi-building me-1"></i>{{ req.blood_bank.name }}
+                                        </span>
+                                    {% elif req.fulfilling_organisation and req.fulfilling_organisation.org_type == 'BLOOD_BANK' %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                            <i class="bi bi-building me-1"></i>{{ req.fulfilling_organisation.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                            <i class="bi bi-building me-1"></i>{{ req.target_blood_bank_name }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">{{ req.created_at|date:"M d, H:i" }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'request_detail' req.id %}" class="btn btn-sm btn-outline-danger">
+                                        Coordinate <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                    {% if req.status == 'DISPATCHED' or req.status == 'FULFILLED_FROM_STOCK' %}
+                                        <a href="{% url 'dispatch_manifest' req.id %}" class="btn btn-sm btn-outline-success ms-1">
+                                            <i class="bi bi-printer"></i> Manifest
+                                        </a>
+                                    {% elif req.status == 'FALLBACK_DONOR_SEARCH' %}
+                                        <a href="{% url 'donor_directory' req.id %}" class="btn btn-sm btn-danger ms-1" title="Active Donor Fallback">
+                                            <i class="bi bi-people-fill"></i> Donors
+                                        </a>
+                                    {% elif not req.allocated_bag %}
+                                        {% if is_hospital or is_admin %}
+                                            <a href="{% url 'donor_directory' req.id %}" class="btn btn-sm btn-outline-danger ms-1" title="Search Voluntary Donors">
+                                                <i class="bi bi-people"></i> Donors
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% if req.status != 'DISPATCHED' and req.status != 'FULFILLED_FROM_STOCK' or is_admin %}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-1 text-danger" data-bs-toggle="modal" data-bs-target="#deleteDashModal{{ req.id }}" title="Delete Requisition" aria-label="Delete Requisition REQ-{{ req.id|stringformat:'05d' }}">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    No emergency requisitions recorded. Click "New Emergency Requisition" to create one.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% for req in my_requests %}
+                {% if req.status != 'DISPATCHED' and req.status != 'FULFILLED_FROM_STOCK' or is_admin %}
+                    <div class="modal fade" id="deleteDashModal{{ req.id }}" tabindex="-1" aria-labelledby="deleteDashModalLabel{{ req.id }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title" id="deleteDashModalLabel{{ req.id }}">
+                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Delete Requisition
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" title="Close"></button>
+                                </div>
+                                <div class="modal-body text-start">
+                                    <p class="mb-2">Are you sure you want to delete requisition <strong>REQ-{{ req.id|stringformat:"05d" }}</strong>?</p>
+                                    <div class="alert alert-warning small mb-0">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        {% if req.allocated_bag and req.allocated_bag.status == 'RESERVED' %}
+                                            Reserved unit <strong>{{ req.allocated_bag.bag_number }}</strong> will be automatically released back to cold storage inventory as available stock.
+                                        {% else %}
+                                            This requisition will be removed and logged in the immutable audit ledger.
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <form method="post" action="{% url 'delete_emergency_request' req.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-trash3 me-1"></i> Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- BLOOD BANK VIEW: INCOMING REQUEST QUEUE -->
+    {% if is_blood_bank %}
+        <div class="card shadow-sm border-0 mb-4 border-start border-4 border-primary">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0 text-primary">
+                    <i class="bi bi-inbox-fill me-2"></i>Incoming Requests Awaiting Blood Bank Action
+                </h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ref ID</th>
+                            <th>Requesting Hospital</th>
+                            <th>District</th>
+                            <th>Required Group</th>
+                            <th>Patient Ref</th>
+                            <th>Requested At</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in incoming_requests %}
+                            <tr>
+                                <td class="fw-bold">REQ-{{ req.id|stringformat:"05d" }}</td>
+                                <td class="fw-semibold">{{ req.requesting_hospital.name }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ req.requesting_hospital.district }}</span></td>
+                                <td>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-6">
+                                        {{ req.required_blood_type }}
+                                    </span>
+                                </td>
+                                <td><code>{{ req.patient_reference }}</code></td>
+                                <td class="small text-muted">{{ req.created_at|date:"M d, H:i" }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'request_detail' req.id %}" class="btn btn-sm btn-primary">
+                                        Review &amp; Reserve <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="bi bi-check2-circle text-success fs-4 d-block mb-1"></i>
+                                    Queue clear! No incoming requisitions pending at this blood bank.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if fulfilling_requests %}
+            <div class="card shadow-sm border-0 mb-4 border-start border-4 border-warning">
+                <div class="card-header bg-white py-3">
+                    <h5 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-clock-history me-2 text-warning"></i>Reserved Requisitions Awaiting Cross-Match &amp; Issue
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ref ID</th>
+                                <th>Hospital</th>
+                                <th>Blood Type</th>
+                                <th>Reserved Bag</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in fulfilling_requests %}
+                                <tr>
+                                    <td class="fw-bold">REQ-{{ req.id|stringformat:"05d" }}</td>
+                                    <td>{{ req.requesting_hospital.name }}</td>
+                                    <td><span class="badge bg-danger">{{ req.required_blood_type }}</span></td>
+                                    <td>
+                                        <strong>{{ req.allocated_bag.bag_number }}</strong>
+                                        ({{ req.allocated_bag.blood_type }})
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'request_detail' req.id %}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-check2-square me-1"></i> Issue Blood
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <!-- OWN INVENTORY LEDGER -->
+    {% if not is_admin %}
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-box-seam text-danger me-2"></i>
+                    {% if is_hospital %}Hospital Cold Storage Inventory{% else %}Blood Bank Inventory Ledger{% endif %}
+                </h5>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'add_bag' %}" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-plus-lg me-1"></i> Add Unit
+                    </a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Bag Identifier</th>
+                            <th>Group</th>
+                            <th>Volume</th>
+                            <th>Expiration Date</th>
+                            <th>Status</th>
+                            <th>Source Donor</th>
+                            <th class="text-end">Release Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bag in recent_bags %}
+                            <tr>
+                                <td class="fw-bold"><code>{{ bag.bag_number }}</code></td>
+                                <td>
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        {{ bag.blood_type }}
+                                    </span>
+                                </td>
+                                <td>{{ bag.volume_ml }} mL</td>
+                                <td>
+                                    {{ bag.expiry_date|date:"Y-m-d" }}
+                                    {% if bag.is_expired %}
+                                        <span class="badge bg-danger">EXPIRED</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if bag.status == 'AVAILABLE' %}
+                                        <span class="badge bg-success">AVAILABLE</span>
+                                    {% elif bag.status == 'RESERVED' %}
+                                        <span class="badge bg-warning text-dark">RESERVED</span>
+                                    {% elif bag.status == 'QUARANTINED' %}
+                                        <span class="badge bg-secondary">QUARANTINED</span>
+                                    {% elif bag.status == 'DISPATCHED' %}
+                                        <span class="badge bg-primary">DISPATCHED</span>
+                                    {% else %}
+                                        <span class="badge bg-dark">{{ bag.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if bag.source_donor %}
+                                        {{ bag.source_donor.full_name }}
+                                    {% else %}
+                                        <span class="text-muted">Imported / Stock</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if bag.status == 'QUARANTINED' and not bag.is_expired %}
+                                        <form method="post" action="{% url 'release_bag' bag.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-shield-check me-1"></i> Release to Stock
+                                            </button>
+                                        </form>
+                                    {% elif bag.status == 'AVAILABLE' %}
+                                        <span class="text-success small"><i class="bi bi-check2"></i> Ready in stock</span>
+                                    {% elif bag.status == 'RESERVED' %}
+                                        <span class="text-warning small"><i class="bi bi-lock"></i> Locked</span>
+                                    {% else %}
+                                        <span class="text-muted small">&mdash;</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    No inventory units recorded for this organisation.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- SUPERUSER OVERVIEW -->
+    {% if is_admin %}
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold mb-0 text-dark">
+                    <i class="bi bi-shield-shaded text-danger me-2"></i>Platform Infrastructure Metrics
+                </h5>
+                <span class="text-muted small">Live state across verified healthcare institutions</span>
+            </div>
+            <a href="/admin/" target="_blank" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-box-arrow-up-right me-1"></i> Open Django Admin Console
+            </a>
+        </div>
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-danger p-3">
+                    <div class="text-muted small text-uppercase">Organisations</div>
+                    <div class="fs-2 fw-bold text-dark">{{ total_orgs }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-primary p-3">
+                    <div class="text-muted small text-uppercase">Total Bags</div>
+                    <div class="fs-2 fw-bold text-dark">{{ total_bags }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-success p-3">
+                    <div class="text-muted small text-uppercase">Available Units</div>
+                    <div class="fs-2 fw-bold text-success">{{ available_bags }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm border-0 border-start border-4 border-warning p-3">
+                    <div class="text-muted small text-uppercase">Pending Requests</div>
+                    <div class="fs-2 fw-bold text-warning">{{ pending_requests }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0">System-wide Emergency Requests</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ref ID</th>
+                            <th>Hospital</th>
+                            <th>Group</th>
+                            <th>Status</th>
+                            <th>Blood Bank Name</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requests %}
+                            <tr>
+                                <td>REQ-{{ req.id|stringformat:"05d" }}</td>
+                                <td>{{ req.requesting_hospital.name }}</td>
+                                <td><span class="badge bg-danger">{{ req.required_blood_type }}</span></td>
+                                <td><span class="badge bg-secondary">{{ req.status }}</span></td>
+                                <td>
+                                    {% if req.blood_bank %}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                            <i class="bi bi-building me-1"></i>{{ req.blood_bank.name }}
+                                        </span>
+                                    {% elif req.fulfilling_organisation and req.fulfilling_organisation.org_type == 'BLOOD_BANK' %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                            <i class="bi bi-building me-1"></i>{{ req.fulfilling_organisation.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                            <i class="bi bi-building me-1"></i>{{ req.target_blood_bank_name }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ req.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'request_detail' req.id %}" class="btn btn-sm btn-outline-danger">View Detail</a>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1 text-danger" data-bs-toggle="modal" data-bs-target="#deleteAdminModal{{ req.id }}" title="Delete Requisition" aria-label="Delete Requisition REQ-{{ req.id|stringformat:'05d' }}">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% for req in requests %}
+                <div class="modal fade" id="deleteAdminModal{{ req.id }}" tabindex="-1" aria-labelledby="deleteAdminModalLabel{{ req.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-danger text-white">
+                                <h5 class="modal-title" id="deleteAdminModalLabel{{ req.id }}">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Admin: Delete Requisition
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" title="Close"></button>
+                            </div>
+                            <div class="modal-body text-start">
+                                <p class="mb-2">Permanently delete requisition <strong>REQ-{{ req.id|stringformat:"05d" }}</strong>?</p>
+                                <div class="alert alert-warning small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Any currently reserved unit will be returned to stock, and this action is logged in the audit trail.
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <form method="post" action="{% url 'delete_emergency_request' req.id %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="bi bi-trash3 me-1"></i> Confirm Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

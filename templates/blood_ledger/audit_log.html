@@ -1,0 +1,159 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Operational Audit Trail | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 pb-2 border-bottom">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-shield-check text-danger me-2"></i>Mission-Critical Audit Ledger</h2>
+            <div class="text-muted small">
+                {% if is_admin %}
+                    Platform Administrator View &bull; Inspecting all organisation audit trails
+                {% else %}
+                    Organisation Scope: <strong>{{ staff_org.name }}</strong> ({{ staff_org.district }})
+                {% endif %}
+            </div>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Dashboard
+        </a>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-3">
+            <form method="get" action="{% url 'audit_log' %}" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="actionSelect" class="form-label fw-semibold small text-secondary">Filter by Action</label>
+                    <select name="action" id="actionSelect" class="form-select">
+                        <option value="">All Audit Actions</option>
+                        {% for code, label in action_choices %}
+                            <option value="{{ code }}" {% if selected_action == code %}selected{% endif %}>{{ label }} ({{ code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="dateSelect" class="form-label fw-semibold small text-secondary">Filter by Date</label>
+                    <input type="date" name="date" id="dateSelect" class="form-control" value="{{ selected_date }}">
+                </div>
+
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-danger flex-grow-1">
+                        <i class="bi bi-funnel me-1"></i> Filter Logs
+                    </button>
+                    {% if selected_action or selected_date %}
+                        <a href="{% url 'audit_log' %}" class="btn btn-outline-secondary" title="Clear Filters">
+                            <i class="bi bi-x-circle"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Audit Logs Table -->
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Timestamp (Kolkata)</th>
+                        <th>Action Performed</th>
+                        <th>Actor</th>
+                        <th>Organisation</th>
+                        <th>Associated Ref</th>
+                        <th>Bag Identifier</th>
+                        <th>Metadata Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in page_obj %}
+                        <tr>
+                            <td class="small text-nowrap fw-semibold text-dark">
+                                {{ log.created_at|date:"Y-m-d H:i:s" }}
+                            </td>
+                            <td>
+                                <span class="badge bg-dark font-monospace text-uppercase">{{ log.action }}</span>
+                            </td>
+                            <td>
+                                {% if log.actor %}
+                                    <span class="small fw-semibold"><i class="bi bi-person me-1"></i>{{ log.actor.username }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary small">System Cron / Worker</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.organisation %}
+                                    <span class="small">{{ log.organisation.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.emergency_request %}
+                                    <a href="{% url 'request_detail' log.emergency_request.id %}" class="fw-bold small text-decoration-none">
+                                        REQ-{{ log.emergency_request.id|stringformat:"05d" }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.bag_number %}
+                                    <code>{{ log.bag_number }}</code>
+                                {% else %}
+                                    <span class="text-muted">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                <code class="text-muted">{{ log.details }}</code>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                No audit log records found matching the filter criteria.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+            <div class="card-footer bg-white border-top py-3 d-flex justify-content-between align-items-center">
+                <span class="small text-muted">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total records)
+                </span>
+                <nav aria-label="Audit log pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                            {% if page_obj.has_previous %}
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}">Previous</a>
+                            {% else %}
+                                <span class="page-link">Previous</span>
+                            {% endif %}
+                        </li>
+                        <li class="page-item active" aria-current="page">
+                            <span class="page-link">{{ page_obj.number }}</span>
+                        </li>
+                        <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                            {% if page_obj.has_next %}
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}">Next</a>
+                            {% else %}
+                                <span class="page-link">Next</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

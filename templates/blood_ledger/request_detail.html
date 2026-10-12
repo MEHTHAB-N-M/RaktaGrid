@@ -1,0 +1,479 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Emergency Request #{{ req.id|stringformat:"05d" }} | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Request Status Header -->
+    <div class="card shadow-sm border-0 mb-4 border-top border-4 border-danger">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <span class="badge bg-secondary mb-1">Requisition #REQ-{{ req.id|stringformat:"05d" }}</span>
+                    <h3 class="fw-bold mb-1">
+                        Emergency Blood Requisition
+                    </h3>
+                    <div class="text-muted">
+                        Requesting Hospital: <strong>{{ req.requesting_hospital.name }}</strong> ({{ req.requesting_hospital.district }}) &bull;
+                        Coordinates: {{ req.requesting_hospital.latitude|floatformat:4 }}° N, {{ req.requesting_hospital.longitude|floatformat:4 }}° E
+                    </div>
+                    {% if req.blood_bank or req.fulfilling_organisation %}
+                        <div class="mt-2">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 py-1 px-2">
+                                <i class="bi bi-building me-1"></i>
+                                {% if req.fulfilling_organisation %}
+                                    Fulfilling Facility: <strong>{{ req.fulfilling_organisation.name }}</strong> ({{ req.fulfilling_organisation.district }})
+                                {% else %}
+                                    Requested Blood Bank: <strong>{{ req.blood_bank.name }}</strong> ({{ req.blood_bank.district }})
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    {% if req.status == 'PENDING' or req.status == 'REQUESTED_FROM_BLOOD_BANK' %}
+                        <span class="badge bg-warning text-dark fs-6 px-3 py-2"><i class="bi bi-clock me-1"></i>PENDING</span>
+                    {% elif req.status == 'RESERVED' %}
+                        <span class="badge bg-info text-dark fs-6 px-3 py-2"><i class="bi bi-lock-fill me-1"></i>RESERVED (2h LOCK)</span>
+                    {% elif req.status == 'DISPATCHED' or req.status == 'FULFILLED_FROM_STOCK' %}
+                        <span class="badge bg-success fs-6 px-3 py-2"><i class="bi bi-truck me-1"></i>DISPATCHED</span>
+                    {% elif req.status == 'FALLBACK_DONOR_SEARCH' %}
+                        <span class="badge bg-danger fs-6 px-3 py-2"><i class="bi bi-people-fill me-1"></i>VOLUNTARY DONOR CASCADE</span>
+                    {% else %}
+                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ req.status }}</span>
+                    {% endif %}
+
+                    {% if is_requesting or is_admin %}
+                        {% if req.status == 'FALLBACK_DONOR_SEARCH' %}
+                            <a href="{% url 'donor_directory' req.id %}" class="btn btn-danger btn-sm">
+                                <i class="bi bi-people-fill me-1"></i> Open Donor Directory
+                            </a>
+                        {% elif req.status != 'DISPATCHED' and req.status != 'FULFILLED_FROM_STOCK' and not req.allocated_bag %}
+                            <a href="{% url 'donor_directory' req.id %}" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-people-fill me-1"></i> Search Voluntary Donors
+                            </a>
+                        {% endif %}
+                        {% if req.status != 'DISPATCHED' and req.status != 'FULFILLED_FROM_STOCK' or is_admin %}
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteRequestModal" title="Delete Requisition" aria-label="Delete Requisition">
+                                <i class="bi bi-trash3 me-1"></i> Delete Requisition
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row g-3 py-3 border-top border-bottom bg-light rounded px-2">
+                <div class="col-sm-6 col-md-3">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Required Group</small>
+                    <span class="fs-4 fw-bold text-danger">{{ req.required_blood_type }}</span>
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Patient Reference</small>
+                    <span class="fs-5 fw-bold text-dark"><code>{{ req.patient_reference }}</code></span>
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Blood Bank Name</small>
+                    <span class="fw-semibold text-dark">
+                        {% if req.blood_bank %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6">
+                                <i class="bi bi-building me-1"></i>{{ req.blood_bank.name }}
+                            </span>
+                        {% elif req.fulfilling_organisation and req.fulfilling_organisation.org_type == 'BLOOD_BANK' %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">
+                                <i class="bi bi-building me-1"></i>{{ req.fulfilling_organisation.name }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6">
+                                <i class="bi bi-building me-1"></i>{{ req.target_blood_bank_name }}
+                            </span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Created Timestamp</small>
+                    <span class="text-dark small">{{ req.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <small class="text-muted text-uppercase fw-semibold d-block">Requested By</small>
+                    <span class="text-dark small">{{ req.requested_by.get_full_name|default:req.requested_by.username }}</span>
+                </div>
+            </div>
+
+            {% if req.rejection_note %}
+                <div class="alert alert-danger mt-3 mb-0 py-2">
+                    <i class="bi bi-x-circle-fill me-1"></i>
+                    <strong>Previous Rejection Reason:</strong> {{ req.rejection_note }}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- WORKFLOW COORDINATION CARDS ACCORDING TO STATUS -->
+
+    <!-- STEP 2 & 3: HOSPITAL ACTIONS WHEN PENDING (No Bank Requested Yet) -->
+    {% if req.status == 'PENDING' and not req.blood_bank and is_requesting or req.status == 'PENDING' and not req.blood_bank and is_admin %}
+        <div class="row g-4 mb-4">
+            <!-- Tier 1: Own Stock Check -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <span class="badge bg-danger me-2">Tier 1</span> Check Hospital Inventory
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">
+                            Search <strong>{{ req.requesting_hospital.name }}</strong>'s own cold storage.
+                            The system attempts exact group first, followed by safe ABO/Rh red-cell compatible groups,
+                            locking with atomic row-level isolation (2-hour reservation).
+                        </p>
+                        <form method="post" action="{% url 'check_own_stock' req.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-lg w-100">
+                                <i class="bi bi-search me-1"></i> Check Own Stock Now
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tier 2: Blood Bank Proximity Cascade -->
+            <div class="col-lg-7">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <span class="badge bg-primary me-2">Tier 2</span> Sourcing from Regional Blood Banks
+                        </h5>
+                        <span class="small text-muted">Ordered by Haversine Distance</span>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if matching_blood_banks %}
+                            <div class="list-group list-group-flush">
+                                {% for b in matching_blood_banks %}
+                                    <div class="list-group-item p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div>
+                                            <h6 class="fw-bold mb-1">{{ b.bank.name }}</h6>
+                                            <div class="small text-muted mb-1">
+                                                <i class="bi bi-geo-alt text-danger me-1"></i>{{ b.bank.district }} &bull;
+                                                <strong>{{ b.distance_km }} km away</strong>
+                                            </div>
+                                            <div class="small">
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle me-1">
+                                                    {{ b.exact_count }} exact units
+                                                </span>
+                                                {% if b.comp_count > 0 %}
+                                                    <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle">
+                                                        {{ b.comp_count }} compatible units
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <form method="post" action="{% url 'request_blood_bank' req.id %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="blood_bank_id" value="{{ b.bank.id }}">
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <i class="bi bi-send me-1"></i> Request from this blood bank
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div class="card-footer bg-light p-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <span class="fw-semibold text-danger"><i class="bi bi-people-fill me-1"></i>Tier 3 Fallback:</span>
+                                    <span class="small text-muted">Bypass regional blood banks and search registered voluntary donors within 50 km.</span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'donor_directory' req.id %}" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-search me-1"></i> View Donors
+                                    </a>
+                                    <form method="post" action="{% url 'trigger_fallback' req.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="bi bi-broadcast me-1"></i> Activate Cascade
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="p-4 text-center">
+                                <i class="bi bi-exclamation-triangle text-warning fs-1 d-block mb-2"></i>
+                                <h6>No regional blood banks currently hold matching stock for {{ req.required_blood_type }}</h6>
+                                <p class="text-muted small">
+                                    All cold-storage units across Kerala regional hubs are depleted or reserved.
+                                </p>
+                                <div class="d-flex justify-content-center gap-2">
+                                    <a href="{% url 'donor_directory' req.id %}" class="btn btn-outline-danger">
+                                        <i class="bi bi-search me-1"></i> View Donors
+                                    </a>
+                                    <form method="post" action="{% url 'trigger_fallback' req.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-people-fill me-1"></i> Activate Voluntary Donor Proximity Cascade
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- TIER 3 VOLUNTARY DONOR CASCADE ACTION (Always accessible prior to bag allocation) -->
+    {% if not req.allocated_bag and req.status != 'DISPATCHED' and req.status != 'FULFILLED_FROM_STOCK' and req.status != 'FALLBACK_DONOR_SEARCH' %}
+        {% if is_requesting or is_admin %}
+            <div class="card shadow-sm border-0 mb-4 border-start border-4 border-danger">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-danger">Tier 3</span>
+                            <h5 class="fw-bold text-dark mb-0"><i class="bi bi-people-fill text-danger me-2"></i>Voluntary Blood Donor Proximity Cascade</h5>
+                        </div>
+                        <p class="text-muted mb-0">
+                            Search registered, medically eligible voluntary blood donors within 50 km (filtered for mandatory 90-day cooldown).
+                        </p>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'donor_directory' req.id %}" class="btn btn-outline-danger">
+                            <i class="bi bi-search me-1"></i> View Eligible Donors
+                        </a>
+                        <form method="post" action="{% url 'trigger_fallback' req.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-broadcast me-1"></i> Activate Donor Cascade
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <!-- STEP 4: BLOOD BANK ACTION CARD -->
+    {% if req.status in 'PENDING,REQUESTED_FROM_BLOOD_BANK' and not req.allocated_bag %}
+        <div class="card shadow-sm border-0 mb-4 border-start border-4 border-primary">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0 text-primary">
+                    <i class="bi bi-inbox-fill me-2"></i>Blood Bank Requisition Review &amp; Dispatch
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <p>
+                    {% if req.blood_bank %}
+                        Requisition requested to: <strong>{{ req.blood_bank.name }}</strong> ({{ req.blood_bank.district }}).
+                    {% else %}
+                        Requisition status: <strong>Open for Blood Bank Allocation</strong>.
+                    {% endif %}
+                    The blood bank team reviews inventory and cross-matches the unit before dispatch.
+                </p>
+
+                {% if is_assigned_bank or is_blood_bank or is_admin %}
+                    <div class="row g-4 mt-2">
+                        <div class="col-lg-4 border-end">
+                            <h6 class="fw-bold text-success mb-2"><i class="bi bi-truck me-1"></i> Option 1: Direct Dispatch</h6>
+                            <p class="small text-muted">
+                                Verify clinical cross-match and dispatch matching cold-storage unit immediately.
+                            </p>
+                            <form method="post" action="{% url 'direct_dispatch_bank_request' req.id %}">
+                                {% csrf_token %}
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="cross_match_confirmed" value="1" id="directCrossMatchCheck" required>
+                                    <label class="form-check-label fw-semibold small" for="directCrossMatchCheck">
+                                        Cross-match completed with patient sample.
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    <i class="bi bi-truck me-1"></i> Verify &amp; Dispatch Unit
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="col-lg-4 border-end">
+                            <h6 class="fw-bold text-primary mb-2"><i class="bi bi-lock-fill me-1"></i> Option 2: Accept &amp; Reserve</h6>
+                            <p class="small text-muted">
+                                Reserves matching unit for 2 hours to allow lab preparation prior to dispatch.
+                            </p>
+                            <form method="post" action="{% url 'accept_bank_request' req.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-primary btn-lg w-100">
+                                    <i class="bi bi-lock-fill me-1"></i> Reserve Blood Bag
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="col-lg-4">
+                            <h6 class="fw-bold text-danger mb-2"><i class="bi bi-x-circle me-1"></i> Option 3: Reject Requisition</h6>
+                            <p class="small text-muted">
+                                Provide clinical reason. Request returns to PENDING for alternative routing.
+                            </p>
+                            <form method="post" action="{% url 'reject_bank_request' req.id %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    {{ reject_form.rejection_note }}
+                                </div>
+                                <button type="submit" class="btn btn-outline-danger w-100">
+                                    <i class="bi bi-arrow-return-left me-1"></i> Reject Requisition
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-hourglass-split me-1"></i> Awaiting confirmation and dispatch from {% if req.blood_bank %}<strong>{{ req.blood_bank.name }}</strong>{% else %}a regional blood bank{% endif %}.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- STEP 5: RESERVED & READY FOR ISSUE CARD -->
+    {% if req.status == 'RESERVED' %}
+        <div class="card shadow-sm border-0 mb-4 border-start border-4 border-success">
+            <div class="card-header bg-white py-3">
+                <h5 class="fw-bold mb-0 text-success">
+                    <i class="bi bi-shield-check me-2"></i>Bag Reserved &bull; Ready for Clinical Cross-Match &amp; Dispatch
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted d-block">Allocated Bag Identifier</small>
+                            <div class="fs-4 fw-bold text-dark"><code>{{ req.allocated_bag.bag_number }}</code></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted d-block">Allocated Blood Group</small>
+                            <div class="fs-4 fw-bold text-danger">
+                                {{ req.allocated_bag.blood_type }}
+                                {% if req.allocated_bag.blood_type != req.required_blood_type %}
+                                    <span class="badge bg-warning text-dark fs-6 ms-1">Compatible Substitute</span>
+                                {% else %}
+                                    <span class="badge bg-success fs-6 ms-1">Exact Match</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted d-block">Fulfilling Organisation</small>
+                            <div class="fs-5 fw-bold text-dark">{{ req.fulfilling_organisation.name }}</div>
+                            <small class="text-muted">Holds lock until: {{ req.allocated_bag.reserved_until|date:"H:i (d M)" }}</small>
+                        </div>
+                    </div>
+                </div>
+
+                {% if is_fulfilling or is_blood_bank or is_admin %}
+                    <div class="p-3 border rounded bg-white">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-clipboard2-check text-danger me-2"></i>Final Cross-Matching &amp; Dispatch Clearance</h6>
+                        <form method="post" action="{% url 'issue_blood' req.id %}">
+                            {% csrf_token %}
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" name="cross_match_confirmed" value="1" id="crossMatchCheck" required>
+                                <label class="form-check-label fw-semibold" for="crossMatchCheck">
+                                    Cross-match completed and clinical compatibility verified with patient sample.
+                                </label>
+                                <div class="form-text text-muted">
+                                    Dispatch is strictly refused unless the physical laboratory cross-match is verified.
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-truck me-1"></i> Issue &amp; Dispatch Blood Bag
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Unit is reserved at <strong>{{ req.fulfilling_organisation.name }}</strong>. Fulfilling staff will perform cross-matching and dispatch.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- FULFILLED OR FALLBACK DIRECT LINKS -->
+    {% if req.status == 'DISPATCHED' or req.status == 'FULFILLED_FROM_STOCK' %}
+        <div class="card shadow-sm border-0 mb-4 border-start border-4 border-success">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h5 class="fw-bold text-success mb-1"><i class="bi bi-check-circle-fill me-2"></i>Unit Successfully Dispatched</h5>
+                    <p class="text-muted mb-0">
+                        Dispatched at {{ req.dispatched_at|date:"Y-m-d H:i:s" }} &bull;
+                        Allocated Unit: <strong>{{ req.allocated_bag.bag_number }}</strong> ({{ req.allocated_bag.blood_type }}).
+                    </p>
+                </div>
+                <a href="{% url 'dispatch_manifest' req.id %}" class="btn btn-danger btn-lg">
+                    <i class="bi bi-printer me-1"></i> View Official Dispatch Manifest
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if req.status == 'FALLBACK_DONOR_SEARCH' %}
+        <div class="card shadow-sm border-0 mb-4 border-start border-4 border-danger">
+            <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h5 class="fw-bold text-danger mb-1"><i class="bi bi-people-fill me-2"></i>Voluntary Donor Proximity Directory Activated</h5>
+                    <p class="text-muted mb-0">
+                        Cold storage was exhausted. Directory lists verified voluntary donors within 50 km ordered by proximity.
+                    </p>
+                </div>
+                <a href="{% url 'donor_directory' req.id %}" class="btn btn-outline-danger btn-lg">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Open Donor Directory
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="mt-3">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+
+    {% if is_requesting or is_admin %}
+        <div class="modal fade" id="deleteRequestModal" tabindex="-1" aria-labelledby="deleteRequestModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="deleteRequestModalLabel">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Delete Requisition
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" title="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-2">Are you sure you want to permanently delete requisition <strong>REQ-{{ req.id|stringformat:"05d" }}</strong>?</p>
+                        <div class="alert alert-warning small mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            {% if req.allocated_bag and req.allocated_bag.status == 'RESERVED' %}
+                                Reserved unit <strong>{{ req.allocated_bag.bag_number }}</strong> will be automatically released back to cold storage inventory as available stock.
+                            {% else %}
+                                This action will permanently remove this requisition from active workflow queues and record a cryptographic entry in the immutable audit ledger.
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form method="post" action="{% url 'delete_emergency_request' req.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash3 me-1"></i> Delete Requisition
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

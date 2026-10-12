@@ -1,0 +1,59 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Healthcare Staff Login | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm border-0 border-top border-4 border-danger">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-droplet-half text-danger display-4 mb-2 d-inline-block"></i>
+                        <h3 class="fw-bold">Staff Authentication</h3>
+                        <p class="text-muted small">
+                            Secure access for Hospital Clinicians, Blood Bank Officers, and Administrators.
+                        </p>
+                    </div>
+
+                    <form method="post" action="{% url 'login' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">Staff Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" name="username" id="{{ form.username.id_for_label }}" class="form-control form-control-lg" required autofocus placeholder="e.g. hosp_a_doc">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.password.id_for_label }}" class="form-label fw-semibold">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                <input type="password" name="password" id="{{ form.password.id_for_label }}" class="form-control form-control-lg" required placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Sign In to Operations Console
+                            </button>
+                            <a href="{% url 'public_search' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i> Back to Public Search
+                            </a>
+                        </div>
+                    </form>
+
+                    <div class="mt-4 pt-3 border-top text-center text-muted small">
+                        <strong>Demo Quick Access:</strong><br>
+                        Hospital: <code>hosp_a_doc</code> / <code>password123</code><br>
+                        Blood Bank: <code>bb_central_staff</code> / <code>password123</code><br>
+                        <!-- Admin: <code>admin</code> / <code>admin123</code> -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

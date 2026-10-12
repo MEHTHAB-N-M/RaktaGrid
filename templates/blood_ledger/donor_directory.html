@@ -1,0 +1,135 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Emergency Donor Directory | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Requisition Context Banner -->
+    <div class="card shadow-sm border-0 border-start border-4 border-danger mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <span class="badge bg-danger mb-2 text-uppercase">Tier 3 &bull; Voluntary Donor Proximity Cascade</span>
+                    <h3 class="fw-bold mb-1">Voluntary Blood Donor Emergency Directory</h3>
+                    <div class="text-muted">
+                        Requisition Ref: <strong>REQ-{{ req.id|stringformat:"05d" }}</strong> &bull;
+                        Target Hospital: <strong>{{ req.requesting_hospital.name }}</strong> ({{ req.requesting_hospital.district }}) &bull;
+                        Required Group: <span class="badge bg-danger fs-6">{{ req.required_blood_type }}</span>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-light text-dark border fs-6">Search Radius: {{ radius_km }} km</span>
+                    <div class="small text-muted mt-1">{{ total_count }} eligible donors identified</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notice -->
+    <div class="alert alert-warning py-2 mb-4 d-flex align-items-center">
+        <i class="bi bi-shield-lock-fill text-warning fs-4 me-3"></i>
+        <div class="small">
+            <strong>Donor Privacy Protection:</strong> Contact numbers are masked by default. Clicking <em>Reveal Contact</em> unmasks the number for immediate emergency triage and logs a tamper-evident audit record.
+        </div>
+    </div>
+
+    <!-- Donors Table -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0"><i class="bi bi-people-fill text-danger me-2"></i>Medically Eligible Voluntary Donors</h5>
+            <span class="badge bg-secondary">Sorted: Exact Matches First &bull; Nearest Distance</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Donor Name</th>
+                        <th>Blood Group</th>
+                        <th>Match Type</th>
+                        <th>Proximity Distance</th>
+                        <th>District</th>
+                        <th>Clinical Eligibility</th>
+                        <th>Emergency Contact</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for donor in donors %}
+                        <tr>
+                            <td class="fw-bold">
+                                {{ donor.full_name }}
+                            </td>
+                            <td>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-6">
+                                    {{ donor.blood_type }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if donor.is_compatible_substitute %}
+                                    <span class="badge bg-warning text-dark border border-warning-subtle">
+                                        <i class="bi bi-shuffle me-1"></i> Compatible Group
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <i class="bi bi-check2 me-1"></i> Exact Match
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border fs-6">
+                                    <i class="bi bi-geo-alt text-danger me-1"></i> {{ donor.distance_km }} km away
+                                </span>
+                            </td>
+                            <td>{{ donor.district }}</td>
+                            <td>
+                                <span class="badge bg-success">
+                                    <i class="bi bi-shield-check me-1"></i> Eligible (Cooldown Clear)
+                                </span>
+                            </td>
+                            <td>
+                                {% if donor.is_revealed %}
+                                    <span class="fw-bold text-success fs-6">
+                                        <i class="bi bi-telephone-fill me-1"></i> {{ donor.contact_number }}
+                                    </span>
+                                {% else %}
+                                    <code class="text-secondary fs-6">{{ donor.masked_contact }}</code>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if not donor.is_revealed %}
+                                    <form method="post" action="{% url 'reveal_donor_contact' req.id donor.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-eye-fill me-1"></i> Reveal Contact
+                                        </button>
+                                    </form>
+                                {% else %}
+                                    <a href="tel:{{ donor.contact_number }}" class="btn btn-sm btn-success">
+                                        <i class="bi bi-telephone-outbound me-1"></i> Call Now
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-geo-alt-slash text-secondary display-4 d-block mb-2"></i>
+                                <h5>No eligible voluntary donors found within {{ radius_km }} km</h5>
+                                <p class="small text-muted mb-0">All registered donors in this range are either in active 90-day cooldown or unavailable.</p>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'request_detail' req.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Requisition
+        </a>
+    </div>
+
+</div>
+{% endblock %}

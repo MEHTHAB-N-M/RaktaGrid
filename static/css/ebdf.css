@@ -1,0 +1,86 @@
+/* RaktaGrid - Emergency Blood Dispatch Framework Custom Application Styles */
+
+:root {
+    --ebdf-crimson: #dc3545;
+    --ebdf-crimson-dark: #b02a37;
+    --ebdf-dark: #212529;
+}
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #212529;
+}
+
+/* Card subtle depth */
+.card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Red accents */
+.border-danger-accent {
+    border-color: var(--ebdf-crimson) !important;
+}
+
+/* Extra small font size utility */
+.fs-xs {
+    font-size: 0.75rem !important;
+}
+
+/* Print styling for Chain-of-Custody Manifest */
+@media print {
+    body {
+        background-color: #ffffff !important;
+        font-size: 11pt;
+    }
+
+    /* Hide screen elements */
+    .navbar,
+    .alert,
+    footer,
+    .d-print-none,
+    .btn {
+        display: none !important;
+    }
+
+    .container {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .manifest-document {
+        border: 2px solid #dc3545 !important;
+        box-shadow: none !important;
+        padding: 24px !important;
+        page-break-inside: avoid;
+    }
+
+    .table {
+        border-color: #dee2e6 !important;
+    }
+
+    .table-dark {
+        background-color: #212529 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .badge {
+        border: 1px solid #6c757d !important;
+        color: #000000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .badge.bg-danger {
+        background-color: #dc3545 !important;
+        color: #ffffff !important;
+    }
+
+    /* Avoid page breaking inside key blocks */
+    .row, table {
+        page-break-inside: avoid;
+    }
+}

@@ -1,0 +1,85 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Add Inventory Unit | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0 border-top border-4 border-danger">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-box-seam text-danger fs-2 me-3"></i>
+                        <div>
+                            <h4 class="fw-bold mb-0">Register Blood Inventory Bag</h4>
+                            <span class="text-muted small">Registering for: <strong>{{ staff_org.name }}</strong> ({{ staff_org.district }})</span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info py-2 small d-flex align-items-center mb-4">
+                        <i class="bi bi-info-circle-fill text-info fs-5 me-2"></i>
+                        <div>
+                            All new bags are automatically quarantined. Once safety and infectious disease testing are confirmed, click <em>Release to Stock</em> on your dashboard.
+                        </div>
+                    </div>
+
+                    <form method="post" action="{% url 'add_bag' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.bag_number.id_for_label }}" class="form-label fw-semibold">
+                                Bag Identifier <span class="text-danger">*</span>
+                            </label>
+                            {{ form.bag_number }}
+                            <div class="form-text text-muted">{{ form.bag_number.help_text }}</div>
+                            {% if form.bag_number.errors %}
+                                <div class="text-danger small mt-1">{{ form.bag_number.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.blood_type.id_for_label }}" class="form-label fw-semibold">
+                                ABO/Rh Blood Group <span class="text-danger">*</span>
+                            </label>
+                            {{ form.blood_type }}
+                            {% if form.blood_type.errors %}
+                                <div class="text-danger small mt-1">{{ form.blood_type.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.volume_ml.id_for_label }}" class="form-label fw-semibold">
+                                Volume in Milliliters (mL) <span class="text-danger">*</span>
+                            </label>
+                            {{ form.volume_ml }}
+                            {% if form.volume_ml.errors %}
+                                <div class="text-danger small mt-1">{{ form.volume_ml.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.expiry_date.id_for_label }}" class="form-label fw-semibold">
+                                Storage Expiration Date <span class="text-danger">*</span>
+                            </label>
+                            {{ form.expiry_date }}
+                            <div class="form-text text-muted">{{ form.expiry_date.help_text }}</div>
+                            {% if form.expiry_date.errors %}
+                                <div class="text-danger small mt-1">{{ form.expiry_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-shield-plus me-1"></i> Register Bag in Quarantine
+                            </button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

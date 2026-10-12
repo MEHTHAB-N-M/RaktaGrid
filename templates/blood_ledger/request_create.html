@@ -1,0 +1,199 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}New Emergency Requisition | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Page Title -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4 pb-2 border-bottom">
+        <div>
+            <h3 class="fw-bold mb-1">
+                <i class="bi bi-hospital text-danger me-2"></i>Emergency Blood Requisition
+            </h3>
+            <span class="text-muted small">
+                Issuing Facility: <strong>{{ staff_org.name }}</strong> &bull; {{ staff_org.district }} District
+            </span>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Requisition Form Column -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm border-0 border-top border-4 border-danger h-100">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3 text-dark">
+                        <i class="bi bi-file-earmark-plus text-danger me-2"></i>Requisition Details
+                    </h5>
+
+                    <div class="alert alert-warning py-2 small d-flex align-items-center mb-4">
+                        <i class="bi bi-shield-exclamation text-warning fs-5 me-2 flex-shrink-0"></i>
+                        <div>
+                            <strong>Clinical Privacy Guard:</strong>
+                            Do not enter patient names or national IDs. Use anonymized bed or case numbers only.
+                        </div>
+                    </div>
+
+                    <form method="post" action="{% url 'create_emergency_request' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.required_blood_type.id_for_label }}" class="form-label fw-semibold">
+                                Required ABO/Rh Blood Group <span class="text-danger">*</span>
+                            </label>
+                            {{ form.required_blood_type }}
+                            {% if form.required_blood_type.errors %}
+                                <div class="text-danger small mt-1">{{ form.required_blood_type.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.patient_reference.id_for_label }}" class="form-label fw-semibold">
+                                Anonymized Patient Reference <span class="text-danger">*</span>
+                            </label>
+                            {{ form.patient_reference }}
+                            <div class="form-text text-muted">{{ form.patient_reference.help_text }}</div>
+                            {% if form.patient_reference.errors %}
+                                <div class="text-danger small mt-1">{{ form.patient_reference.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.blood_bank.id_for_label }}" class="form-label fw-semibold d-flex justify-content-between align-items-center">
+                                <span>Target Blood Bank Option</span>
+                                <span class="badge bg-secondary-subtle text-secondary border">Optional</span>
+                            </label>
+                            {{ form.blood_bank }}
+                            <div class="form-text text-muted">
+                                Consult the live stock availability panel on the right. Select a blood bank to dispatch immediately, or leave default to check your hospital's own cold storage first.
+                            </div>
+                            {% if form.blood_bank.errors %}
+                                <div class="text-danger small mt-1">{{ form.blood_bank.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-send-check me-1"></i> Submit Emergency Requisition
+                            </button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Blood Bank Stock Intelligence Column -->
+        <div class="col-lg-7">
+            <!-- Own Hospital Quick Status -->
+            <div class="card shadow-sm border-0 border-start border-4 border-secondary mb-4">
+                <div class="card-body p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div class="text-muted small text-uppercase fw-semibold">Your Hospital Cold Storage</div>
+                        <h6 class="fw-bold mb-0 text-dark">{{ staff_org.name }}</h6>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary fs-6 px-3 py-2">
+                            <i class="bi bi-box-seam me-1"></i>{{ own_total }} units available
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regional Blood Banks Availability Matrix -->
+            <div class="card shadow-sm border-0 border-top border-4 border-primary">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <h5 class="fw-bold mb-0 text-primary">
+                            <i class="bi bi-building-check me-2"></i>Live Regional Blood Bank Availability
+                        </h5>
+                        <span class="text-muted small">Real-time cold storage stock across verified Kerala facilities</span>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                        Ordered by Proximity
+                    </span>
+                </div>
+
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small">
+                                <tr>
+                                    <th>Blood Bank</th>
+                                    <th>Distance</th>
+                                    <th class="text-center">Total Stock</th>
+                                    <th>Stock by Group</th>
+                                    <th class="text-end">Select Bank</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in bank_availability %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold text-dark">{{ item.bank.name }}</div>
+                                            <div class="small text-muted">
+                                                <i class="bi bi-geo-alt me-1 text-danger"></i>{{ item.bank.district }} &bull; {{ item.bank.phone }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border">
+                                                {{ item.distance_km }} km
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            {% if item.total_available > 0 %}
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">
+                                                    {{ item.total_available }}
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary-subtle text-muted border">
+                                                    0
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% for bt, count in item.counts.items %}
+                                                    {% if count > 0 %}
+                                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-1 small" title="{{ bt }}: {{ count }} units available">
+                                                            <strong>{{ bt }}</strong>: {{ count }}
+                                                        </span>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                {% if item.total_available == 0 %}
+                                                    <span class="text-muted small fst-italic">Depleted</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="?bank_id={{ item.bank.id }}" class="btn btn-sm btn-outline-primary" title="Pre-fill this blood bank in the form">
+                                                <i class="bi bi-check2-circle me-1"></i> Choose
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">
+                                            No registered regional blood banks found.
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-white border-top text-muted small py-2 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-info-circle me-1"></i> Click <strong>Choose</strong> next to any bank to select it in the form.</span>
+                    <span><i class="bi bi-shield-check text-success me-1"></i> Real-time DB Verified</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

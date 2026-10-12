@@ -1,0 +1,84 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Record Whole Blood Donation | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0 border-top border-4 border-danger">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-heart-pulse text-danger fs-2 me-3"></i>
+                        <div>
+                            <h4 class="fw-bold mb-0">Record Whole Blood Phlebotomy</h4>
+                            <span class="text-muted small">Receiving facility: <strong>{{ staff_org.name }}</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-secondary py-2 small d-flex align-items-center mb-4">
+                        <i class="bi bi-shield-check text-success fs-5 me-2"></i>
+                        <div>
+                            <strong>Clinical Protocol:</strong> Enforces the mandatory 90-day cooldown between whole donations. Newly collected blood begins in QUARANTINED status until virological tests complete.
+                        </div>
+                    </div>
+
+                    <form method="post" action="{% url 'record_donation' %}">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.donor.id_for_label }}" class="form-label fw-semibold">
+                                Registered Donor <span class="text-danger">*</span>
+                            </label>
+                            {{ form.donor }}
+                            <div class="form-text text-muted">{{ form.donor.help_text }}</div>
+                            {% if form.donor.errors %}
+                                <div class="text-danger small mt-1">{{ form.donor.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.bag_number.id_for_label }}" class="form-label fw-semibold">
+                                Barcode / Bag Identifier <span class="text-danger">*</span>
+                            </label>
+                            {{ form.bag_number }}
+                            {% if form.bag_number.errors %}
+                                <div class="text-danger small mt-1">{{ form.bag_number.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.volume_ml.id_for_label }}" class="form-label fw-semibold">
+                                Collected Volume (mL) <span class="text-danger">*</span>
+                            </label>
+                            {{ form.volume_ml }}
+                            {% if form.volume_ml.errors %}
+                                <div class="text-danger small mt-1">{{ form.volume_ml.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.expiry_date.id_for_label }}" class="form-label fw-semibold">
+                                Expiration Date <span class="text-danger">*</span>
+                            </label>
+                            {{ form.expiry_date }}
+                            {% if form.expiry_date.errors %}
+                                <div class="text-danger small mt-1">{{ form.expiry_date.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-danger btn-lg">
+                                <i class="bi bi-check2-circle me-1"></i> Record Donation &amp; Quarantine Unit
+                            </button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                                Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

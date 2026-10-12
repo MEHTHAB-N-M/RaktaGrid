@@ -1,0 +1,131 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Civic Live Blood Availability | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Hero Header -->
+    <div class="p-4 p-md-5 mb-4 rounded-3 text-white bg-dark shadow-sm border-start border-5 border-danger position-relative overflow-hidden">
+        <div class="position-relative z-1">
+            <span class="badge bg-danger mb-2 px-3 py-2 text-uppercase letter-spacing">Public Health Emergency Portal</span>
+            <h1 class="display-5 fw-bold mb-3">Civic Live Cold Storage Availability</h1>
+            <p class="col-md-9 fs-5 text-light opacity-90 mb-0">
+                Real-time whole blood inventory across registered hospitals and regional blood banks in Kerala.
+                Zero-login access for emergency responders, triage teams, and citizens.
+            </p>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body p-4">
+            <form method="get" action="{% url 'public_search' %}" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="districtSelect" class="form-label fw-semibold text-secondary">
+                        <i class="bi bi-geo-alt-fill text-danger me-1"></i> Filter by Kerala District
+                    </label>
+                    <select name="district" id="districtSelect" class="form-select form-select-lg">
+                        <option value="">All 14 Kerala Districts</option>
+                        {% for d in districts %}
+                            <option value="{{ d }}" {% if selected_district == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label for="bloodTypeSelect" class="form-label fw-semibold text-secondary">
+                        <i class="bi bi-droplet-half text-danger me-1"></i> Filter by Blood Group
+                    </label>
+                    <select name="blood_type" id="bloodTypeSelect" class="form-select form-select-lg">
+                        <option value="">All Blood Groups</option>
+                        {% for bt in blood_types %}
+                            <option value="{{ bt }}" {% if selected_blood_type == bt %}selected{% endif %}>{{ bt }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-danger btn-lg flex-grow-1">
+                        <i class="bi bi-search me-1"></i> Search
+                    </button>
+                    {% if selected_district or selected_blood_type %}
+                        <a href="{% url 'public_search' %}" class="btn btn-outline-secondary btn-lg" title="Clear filters">
+                            <i class="bi bi-x-circle"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Threshold Legend -->
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 px-2">
+        <div class="small text-muted">
+            Displaying registered &amp; verified healthcare facilities. Stock thresholds:
+        </div>
+        <div class="d-flex gap-3 small">
+            <span class="d-flex align-items-center"><span class="badge bg-success rounded-circle p-1 me-1"> </span> &ge; {{ low_threshold }} Units (In Stock)</span>
+            <span class="d-flex align-items-center"><span class="badge bg-warning text-dark rounded-circle p-1 me-1"> </span> 1&ndash;{{ low_threshold|add:"-1" }} Units (Low Stock)</span>
+            <span class="d-flex align-items-center"><span class="badge bg-danger rounded-circle p-1 me-1"> </span> 0 Units (Depleted)</span>
+        </div>
+    </div>
+
+    <!-- Facilities Directory -->
+    <div class="row g-4">
+        {% for item in org_list %}
+            <div class="col-12">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <span class="h5 mb-0 fw-bold me-2">{{ item.org.name }}</span>
+                            {% if item.org.org_type == 'BLOOD_BANK' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle text-uppercase"><i class="bi bi-bank me-1"></i>Blood Bank</span>
+                            {% else %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle text-uppercase"><i class="bi bi-hospital me-1"></i>Hospital</span>
+                            {% endif %}
+                            <span class="badge bg-light text-dark border ms-1"><i class="bi bi-geo-alt me-1"></i>{{ item.org.district }}</span>
+                        </div>
+                        <div class="small text-secondary">
+                            <i class="bi bi-telephone-fill me-1"></i> {{ item.org.phone }}
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="row g-2 text-center">
+                            {% for bc in item.blood_counts %}
+                                <div class="col-6 col-sm-3 col-md-3 col-lg">
+                                    <div class="p-2 border rounded bg-light position-relative">
+                                        <div class="fw-bold fs-5 text-dark">{{ bc.code }}</div>
+                                        <div class="fs-4 fw-bolder text-{{ bc.status_color }}">
+                                            {{ bc.count }}
+                                        </div>
+                                        <div class="fs-xs text-muted">
+                                            <span class="badge bg-{{ bc.status_color }} text-{% if bc.status_color == 'warning' %}dark{% else %}white{% endif %} py-0 px-1">
+                                                {{ bc.status_text }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-top text-muted small py-2 d-flex justify-content-between">
+                        <span><i class="bi bi-pin-map text-danger me-1"></i> {{ item.org.address }}</span>
+                        <span><i class="bi bi-shield-check text-success me-1"></i> Admin-Verified Facility</span>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col-12">
+                <div class="text-center py-5 bg-white rounded shadow-sm border">
+                    <i class="bi bi-search text-secondary display-4 d-block mb-3"></i>
+                    <h4>No matching facilities found</h4>
+                    <p class="text-muted">No registered healthcare organisations match your selected district filter.</p>
+                    <a href="{% url 'public_search' %}" class="btn btn-outline-danger">Reset Filters</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

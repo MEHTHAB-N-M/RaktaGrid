@@ -1,0 +1,154 @@
+{% extends "blood_ledger/base.html" %}
+
+{% block title %}Chain of Custody Dispatch Manifest #{{ req.id|stringformat:"05d" }} | RaktaGrid{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Screen-Only Action Bar -->
+    <div class="d-print-none mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <a href="{% url 'request_detail' req.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Requisition
+        </a>
+
+        <div class="d-flex align-items-center gap-2">
+            <div class="alert alert-secondary py-1 px-3 mb-0 small">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>To Save or Print:</strong> Use your browser's Print (Ctrl+P / Cmd+P) and choose <em>Save as PDF</em> or your physical printer.
+            </div>
+        </div>
+    </div>
+
+    <!-- Official Manifest Document (Print-Optimized) -->
+    <div class="manifest-document p-4 p-md-5 bg-white shadow-sm border border-2 border-danger-subtle rounded">
+
+        <!-- Manifest Header -->
+        <div class="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4">
+            <div>
+                <div class="d-flex align-items-center mb-1">
+                    <span class="fs-2 fw-bolder text-danger me-2">&#x25C6; RaktaGrid</span>
+                    <span class="fs-4 fw-bold text-dark">EMERGENCY BLOOD DISPATCH MANIFEST</span>
+                </div>
+                <div class="text-secondary small">
+                    CIVIC CHAIN-OF-CUSTODY &amp; TRANSFUSION HANDOVER DOCUMENT
+                </div>
+            </div>
+            <div class="text-end">
+                <div class="badge bg-danger fs-6 px-3 py-2 text-uppercase mb-1">OFFICIAL DISPATCH</div>
+                <div class="text-muted small">REF ID: <strong>REQ-{{ req.id|stringformat:"05d" }}</strong></div>
+                <div class="text-muted small">Date: {{ req.dispatched_at|date:"Y-m-d H:i:s" }}</div>
+            </div>
+        </div>
+
+        <!-- Participating Facilities Grid -->
+        <div class="row g-4 mb-4">
+            <div class="col-6">
+                <div class="p-3 border rounded bg-light">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Requesting Hospital</div>
+                    <h5 class="fw-bold mb-1 text-dark">{{ req.requesting_hospital.name }}</h5>
+                    <div class="small text-secondary">{{ req.requesting_hospital.address }}</div>
+                    <div class="small text-secondary">District: <strong>{{ req.requesting_hospital.district }}</strong> &bull; Tel: {{ req.requesting_hospital.phone }}</div>
+                </div>
+            </div>
+
+            <div class="col-6">
+                <div class="p-3 border rounded bg-light">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Issuing &amp; Fulfilling Facility</div>
+                    <h5 class="fw-bold mb-1 text-dark">{{ req.fulfilling_organisation.name }}</h5>
+                    <div class="small text-secondary">{{ req.fulfilling_organisation.address }}</div>
+                    <div class="small text-secondary">District: <strong>{{ req.fulfilling_organisation.district }}</strong> &bull; Tel: {{ req.fulfilling_organisation.phone }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clinical Specifications Table -->
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="w-25">Clinical Parameter</th>
+                        <th class="w-75">Dispatch Data &amp; Verification Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="fw-bold bg-light">Patient Clinical Reference</td>
+                        <td><code class="fs-5 fw-bold text-dark">{{ req.patient_reference }}</code> (Anonymized Bed/Case Identifier)</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Requested ABO/Rh Blood Group</td>
+                        <td><span class="badge bg-danger fs-6">{{ req.required_blood_type }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Issued ABO/Rh Blood Group</td>
+                        <td>
+                            <span class="badge bg-danger fs-6 me-2">{{ bag.blood_type }}</span>
+                            {% if is_substitute %}
+                                <span class="badge bg-warning text-dark border">
+                                    <i class="bi bi-shuffle me-1"></i> ABO/Rh Red-Cell Compatible Substitute (Requested: {{ req.required_blood_type }} &rarr; Issued: {{ bag.blood_type }})
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle">Exact Match</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Physical Bag Identifier</td>
+                        <td><strong class="fs-5 text-dark font-monospace">{{ bag.bag_number }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Unit Volume &amp; Packaging</td>
+                        <td>{{ bag.volume_ml }} mL CPDA-1 Whole Blood / Packed Red Cells</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Expiration Date</td>
+                        <td>{{ bag.expiry_date|date:"Y-m-d" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Laboratory Cross-Match Verified At</td>
+                        <td>
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>
+                            <strong>{{ req.cross_match_confirmed_at|date:"Y-m-d H:i:s" }}</strong>
+                            (Major &amp; Minor Compatibility Verified Prior to Cold-Chain Release)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Dispatched Timestamp</td>
+                        <td><strong>{{ req.dispatched_at|date:"Y-m-d H:i:s" }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold bg-light">Requisition Status</td>
+                        <td><span class="badge bg-success fs-6">{{ req.get_status_display }}</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Physical Signature Lines -->
+        <div class="row pt-4 mt-4 border-top">
+            <div class="col-6 text-center">
+                <div class="pt-5 border-top border-dark mx-3">
+                    <div class="fw-bold text-dark">Authorized Issuing Transfusion Officer</div>
+                    <div class="text-secondary small">{{ req.fulfilling_organisation.name }}</div>
+                    <div class="text-muted small">Signature &amp; Stamp / Date</div>
+                </div>
+            </div>
+
+            <div class="col-6 text-center">
+                <div class="pt-5 border-top border-dark mx-3">
+                    <div class="fw-bold text-dark">Authorized Receiving Hospital Medical Officer</div>
+                    <div class="text-secondary small">{{ req.requesting_hospital.name }}</div>
+                    <div class="text-muted small">Signature &amp; Stamp / Date</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Official Disclaimer Footer -->
+        <div class="mt-5 pt-3 border-top text-center text-muted small fst-italic">
+            Compatibility shown is ABO/Rh red-cell compatibility only; final cross-matching and clinical decisions rest with the hospital's transfusion service.
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
