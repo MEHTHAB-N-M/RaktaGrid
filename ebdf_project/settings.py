@@ -66,6 +66,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.koyeb.app',
     'https://*.railway.app',
     'https://*.hf.space',
+    'https://*.vercel.app',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 ]
