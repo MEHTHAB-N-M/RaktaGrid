@@ -35,8 +35,6 @@ ENV/
 *.sqlite3
 *.db
 
-# Django staticfiles cache
-staticfiles/
 
 # IDE & OS
 .vscode/
