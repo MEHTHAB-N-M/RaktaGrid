@@ -4,13 +4,13 @@
 
 **Emergency blood dispatch framework that stops double-allocation, protects donors, and finds life-saving units in seconds.**
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-raktagrid.onrender.com-E63946?style=for-the-badge&logo=render&logoColor=white)](https://raktagrid.onrender.com/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-rakta--grid--five.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://rakta-grid-five.vercel.app/)
 [![Django](https://img.shields.io/badge/Django_5-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![Python](https://img.shields.io/badge/Python_3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Bootstrap](https://img.shields.io/badge/Bootstrap_5.3-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
 
-[Live Demo](https://raktagrid.onrender.com/) · [Report Bug](https://github.com/MEHTHAB-N-M/RaktaGrid/issues)
+[Live Demo](https://rakta-grid-five.vercel.app/) · [Report Bug](https://github.com/MEHTHAB-N-M/RaktaGrid/issues)
 
 </div>
 
